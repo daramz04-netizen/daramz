@@ -121,4 +121,680 @@ textarea.fld{resize:vertical;min-height:110px}
   <div class="card"><h3>기본 정보</h3>
    <label style="margin-top:0">곡 제목 <i>*</i></label><input class="fld" id="fTitle" placeholder="곡 제목">
    <label>가사 한 줄</label><input class="fld" id="fLyric" maxlength="80" placeholder="목록에서 곡을 알아볼 대표 가사">
+   <label>음원 유튜브 링크</label><input class="fld" id="fYt" placeholder="https://youtu.be/…">
+   <label>원키</label><div id="kpSong"></div>
+   <label>분류</label><div class="pick" id="fCats"></div>
+   <div id="newCat" style="display:none;margin-top:10px;gap:8px"><input class="fld" id="ncName" maxlength="8" placeholder="새 분류 이름" style="margin:0;flex:1"><button class="btn sm" id="ncAdd">추가</button></div>
+  </div>
+  <div class="card"><h3>악보</h3>
+   <label class="btn ghost sm" style="display:inline-block;margin:0">＋ 악보 이미지 추가<input type="file" id="fFile" accept="image/*" multiple hidden></label>
+   <div class="thumbs" id="fThumbs"></div>
+  </div>
+ </div>
+ <div class="pf"><button class="btn ghost" data-close="pgSong">취소</button><button class="btn" id="sgSave">저장</button></div>
+</div>
+
+<div class="page" id="pgSheet"><div class="ph"><button class="bk" data-close="pgSheet" id="bkSheet"></button><h2>악보 추가</h2></div>
+ <div class="pb">
+  <div class="card">
+   <label style="margin-top:0">곡 제목 (선택)</label><input class="fld" id="shTitle" list="songList" maxlength="40" placeholder="예) 주 은혜임을"><datalist id="songList"></datalist>
+   <label>키</label><div id="kpSheet"></div>
+   <label>악보 이미지</label>
+   <label class="btn ghost sm" style="display:inline-block;margin:0">＋ 이미지 추가<input type="file" id="shFile" accept="image/*" multiple hidden></label>
+   <div class="thumbs" id="shThumbs"></div>
+  </div>
+ </div>
+ <div class="pf"><button class="btn ghost" data-close="pgSheet">취소</button><button class="btn" id="shSave">보관함에 저장</button></div>
+</div>
+
+<div class="page" id="pgConti"><div class="ph"><button class="bk" data-close="pgConti" id="bkConti"></button><h2>새 콘티</h2></div>
+ <div class="pb">
+  <div class="card">
+   <label style="margin-top:0">콘티 이름</label><input class="fld" id="cnName" maxlength="40" placeholder="주일 2부 예배">
+   <label>날짜</label><input class="fld" id="cnDate" type="date">
+   <label>말씀 · 주제</label><textarea class="fld" id="cnTopic" placeholder="본문과 설교 주제"></textarea>
+  </div>
+  <div class="card"><h3 id="cnCount">선택한 곡</h3><div id="cnList"></div>
+   <button class="btn ghost full" id="cnAdd" style="margin-top:8px;color:var(--ind)">＋ 곡 추가</button>
+  </div>
+ </div>
+ <div class="pf"><button class="btn" id="cnPdf">PDF 만들기</button></div>
+</div>
+
+<div class="page" id="pgPick"><div class="ph"><button class="bk" data-close="pgPick" id="bkPick"></button><h2>곡 선택</h2><button class="btn sm" id="pkDone">완료</button></div>
+ <div class="pb">
+  <div class="seg"><button data-pt="s" id="pkS">곡</button><button data-pt="h" id="pkH">악보 보관함</button></div>
+  <div class="search" id="pkSearchBox"><span id="pkIc"></span><input type="text" id="pkQ" placeholder="검색"></div>
+  <div id="pkList"></div>
+ </div>
+</div>
+
+<div class="page" id="pgView"><div class="ph"><button class="bk" data-close="pgView" id="bkView"></button><h2 id="vT"></h2></div>
+ <div class="pb" id="vB"></div>
+</div>
+
+<div class="page" id="pgSf"><div class="ph"><button class="bk" data-close="pgSf" id="bkSf"></button><h2>송폼 쓰기</h2></div>
+ <div class="pb">
+  <div class="chips" id="sfPg"></div>
+  <div class="sfb" id="sfSec"></div>
+  <div class="sfb" id="sfMeas"></div>
+  <div class="sfb"><input type="number" id="sfN" min="1" max="128" placeholder="마디 수"><button class="btn ghost sm" id="sfNAdd">마디추가</button><button class="btn ghost sm" id="sfBack">⌫ 마지막 삭제</button><button class="btn ghost sm" id="sfClr">전체 지우기</button></div>
+  <textarea class="fld" id="sfText" rows="2" style="min-height:70px" placeholder="버튼을 누르면 송폼이 만들어져요. 직접 고쳐 써도 돼요 (예: Intro (4마디) V C (8마디))"></textarea>
+  <div class="sfprev"><canvas id="sfCv" width="10" height="10"></canvas></div>
+ </div>
+ <div class="pf"><button class="btn ghost" id="sfDl">⬇ 기기에 저장</button><button class="btn" id="sfSave">악보 보관함에 저장</button></div>
+</div>
+
+<div id="gate"></div>
+<div id="toast"></div>
+
+<script>
+var SUPABASE_URL = 'https://pkdwbavvqrunhfwdxrwa.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_hIw1vREA2adHmh8pjZrJVQ_8oc9rRQe';
+var OWNER_EMAIL = 'daramz04@gmail.com';
+
+var $=function(i){return document.getElementById(i)};
+var db=null,user=null,assets=null,downloads=null,myId=null,myEmail='',isOwner=false,ready=false,needCfg=false;
+var songs=[],sheets=[],contis=[],members={},requests={},myReq=null,names={},teamName='찬양 곡 노트';
+var CV={'--c1':'#f3d98b','--c2':'#f1b9a4','--c3':'#bcd9a3','--c4':'#f0b4c6','--c5':'#a9cce6','--c6':'#a9dccf','--c7':'#cdbdea'};
+var CATS=[{n:'찬송',c:'#f3d98b'},{n:'고백',c:'#f1b9a4'},{n:'감사',c:'#bcd9a3'},{n:'사랑',c:'#f0b4c6'},{n:'공동체',c:'#a9cce6'},{n:'동행',c:'#a9dccf'},{n:'믿음',c:'#cdbdea'}];
+var PAL=['#f0c9a4','#d3e0a1','#e8bde0','#b5d3ee','#efe08a','#b9e3c8','#e6c0c0','#c5cdf0'];
+var KEYS=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'],ALLKEYS=KEYS.concat(KEYS.map(function(k){return k+'m'}));
+var tab='songs',sub='list',q='',fKey='',fCat='',shKey='',cmArm=null,vArm=false;
+
+function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none'},2800)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function safeUrl(u){return /^https?:\/\//i.test(u)?u:''}
+function canWrite(){return !!db&&(isOwner||!!members[myId])}
+function nm(id){return names[id]||'계정 확인됨'}
+function catColor(n){var c=CATS.filter(function(x){return x.n===n})[0];if(!c)return 'var(--line)';return CV[c.c]||c.c}
+function today(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function dstr(v){var d=typeof v==='number'?new Date(v):new Date(v+'T00:00:00');return isNaN(d)?'':d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일'}
+var ICO={music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',list:'<path d="M10 6h11M10 12h11M10 18h11M3 6h2M3 12h2M3 18h2"/>',users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c3 0 5 2 5 5"/>',search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',img:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-9 9"/>',plus:'<path d="M12 5v14M5 12h14"/>',back:'<path d="M15 5l-7 7 7 7"/>'};
+function ic(n){return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+ICO[n]+'</svg>'}
+function chip(v,l,on,g){return '<button class="chip'+(on?' on':'')+'" data-g="'+g+'" data-v="'+esc(v)+'">'+esc(l)+'</button>'}
+
+/* ---------- 화면 ---------- */
+function render(){
+  var g=$('gate');
+  if(needCfg||(ready&&!db)){
+    if(g.getAttribute('data-on')!=='1'){g.innerHTML=gateHTML();gateBind();g.setAttribute('data-on','1')}
+    g.style.display='flex';return}
+  g.style.display='none';
+  $('tName').textContent=teamName;document.title=teamName;
+  $('tabs').innerHTML=[['songs','music','곡'],['conti','list','콘티'],['team','users','팀']].map(function(t){return '<button data-tab="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+ic(t[1])+'<span>'+t[2]+'</span></button>'}).join('');
+  var fab=$('fab'),w=canWrite(),lab='';
+  if(tab==='songs'&&w)lab=sub==='list'?'곡 등록':'악보 추가';
+  if(tab==='conti')lab='콘티 만들기';
+  fab.style.display=lab?'flex':'none';fab.innerHTML=ic('plus')+'<span>'+lab+'</span>';
+  $('hCount').textContent=tab==='songs'?(sub==='list'?songs.length+'곡':sheets.length+'장'):tab==='conti'?contis.length+'개':'';
+  var el=document.activeElement;
+  if(tab==='songs'&&sub==='list'&&el&&el.id==='q'){updSongs();return}
+  if(el&&/INPUT|TEXTAREA/.test(el.tagName)&&$('main').contains(el))return;
+  $('main').innerHTML=tab==='songs'?vSongs():tab==='conti'?vConti():vTeam();
+  if(tab==='songs'){if(sub==='list')updSongs();else updSheets()}
+}
+function vSongs(){
+  var seg='<div class="seg"><button data-sub="list" class="'+(sub==='list'?'on':'')+'">곡 목록</button><button data-sub="sheets" class="'+(sub==='sheets'?'on':'')+'">악보 보관함</button></div>';
+  if(sub==='sheets')return seg+'<div class="chips" id="shChips"></div><div id="shList"></div>';
+  return seg+'<div class="search">'+ic('search')+'<input type="text" id="q" placeholder="제목이나 가사로 검색" value="'+esc(q)+'"></div><div class="chips" id="kChips"></div><div class="chips" id="cChips"></div><div id="sList"></div>';
+}
+function updSongs(){
+  var ks={};songs.forEach(function(s){ks[s.key]=1});
+  $('kChips').innerHTML=chip('','전체',fKey==='','k')+ALLKEYS.filter(function(k){return ks[k]}).map(function(k){return chip(k,k,fKey===k,'k')}).join('');
+  $('cChips').innerHTML=chip('','모든 분류',fCat==='','c')+CATS.map(function(c){return chip(c.n,c.n,fCat===c.n,'c')}).join('');
+  var ql=q.trim().toLowerCase();
+  var l=songs.filter(function(s){return(!fKey||s.key===fKey)&&(!fCat||s.cats.indexOf(fCat)>-1)&&(!ql||(s.title+' '+s.lyric).toLowerCase().indexOf(ql)>-1)});
+  $('sList').innerHTML=l.length?'<div class="list">'+l.map(function(s){return '<div class="row" data-s="'+s.id+'"><div class="kb">'+esc(s.key)+'</div><div class="rm"><div class="rt">'+esc(s.title)+'</div><div class="rl">'+(s.lyric?esc(s.lyric):'가사 한 줄을 적어두면 찾기 쉬워요')+'</div></div>'+(s.imgs.length?'<div class="ri">'+ic('img')+s.imgs.length+'</div>':'')+'</div>'}).join('')+'</div>':'<div class="empty">'+(songs.length?'조건에 맞는 곡이 없어요.':'아직 등록된 곡이 없어요.')+'</div>';
+}
+function updSheets(){
+  var cnt={};sheets.forEach(function(s){cnt[s.key]=(cnt[s.key]||0)+1});
+  $('shChips').innerHTML=chip('','전체 '+sheets.length,shKey==='','h')+ALLKEYS.filter(function(k){return cnt[k]}).map(function(k){return chip(k,k+' '+cnt[k],shKey===k,'h')}).join('');
+  var h='';
+  ALLKEYS.forEach(function(k){if(shKey&&shKey!==k)return;var g=sheets.filter(function(s){return s.key===k});if(!g.length)return;
+    h+='<div class="kh"><span class="kb sm">'+esc(k)+'</span><span class="sub">'+g.length+'개</span></div><div class="sg">'+g.map(function(s){return '<div class="sc" data-h="'+s.id+'"><img src="'+esc(s.imgs[0]||'')+'" alt=""><div class="st">'+esc(s.title||'제목 없음')+'</div><div class="sub">'+s.imgs.length+'장</div></div>'}).join('')+'</div>'});
+  $('shList').innerHTML=h||'<div class="empty">보관된 악보가 없어요.</div>';
+}
+function vConti(){
+  if(!contis.length)return '<div class="empty2"><div class="eic">'+ic('list')+'</div><h3>첫 콘티를 만들어 보세요</h3><p>말씀 주제를 적고, 곡을 고르고, 순서를 정한 뒤 PDF로 뽑을 수 있어요.</p><button class="btn" data-act="newConti">＋ 콘티 만들기</button></div>';
+  return '<div class="list">'+contis.map(function(c){return '<div class="row" data-c="'+c.id+'"><div class="kb">'+ic('list')+'</div><div class="rm"><div class="rt">'+esc(c.name)+'</div><div class="rl">'+esc(c.date?dstr(c.date):dstr(c.at))+' · '+c.songs.length+'곡'+(c.topic?' · '+esc(c.topic.replace(/\n/g,' ')):'')+'</div></div></div>'}).join('')+'</div>';
+}
+function vTeam(){
+  var h='',st=isOwner?'👑 관리자':members[myId]?'공동작업자':myReq?'승인 대기 중':'보기 전용';
+  h+='<div class="card"><h3>내 권한</h3><div class="big">'+st+'</div>';
+  if(!isOwner&&!members[myId]){
+    if(myReq)h+='<p class="sub">관리자가 확인 후 수락하면 곡을 등록·수정할 수 있어요.</p>';
+    else h+='<p class="sub">곡을 등록하려면 이름을 적어 수정 권한을 요청하세요. 관리자가 누구인지 확인한 뒤 수락해요.</p><input class="fld" id="rName" maxlength="20" placeholder="이름 (필수)"><input class="fld" id="rMemo" maxlength="40" placeholder="소속·역할 (예: 청년부 인도자)"><button class="btn full" data-act="req">수정 권한 요청</button>'}
+  h+='</div>';
+  if(isOwner){
+    var rq=Object.keys(requests),mb=Object.keys(members);
+    h+='<div class="card"><h3>수락 대기 '+rq.length+'</h3>'+(rq.length?rq.map(function(id){var r=requests[id];return '<div class="mrow"><div><b>'+esc(r.note||'')+'</b><small>'+esc(r.memo||'')+' · 계정: '+esc(r.email||nm(id))+' · '+dstr(r.at||0)+'</small></div><div><button class="btn sm" data-ok="'+id+'">수락</button> <button class="btn sm ghost" data-no="'+id+'">거절</button></div></div>'}).join(''):'<div class="sub">대기 중인 요청이 없어요.</div>')+'</div>';
+    h+='<div class="card"><h3>공동작업자 '+mb.length+'</h3>'+(mb.length?mb.map(function(id){var r=members[id];return '<div class="mrow"><div><b>'+esc(r.note||'')+'</b><small>'+esc(r.memo||'')+' · 계정: '+esc(r.email||nm(id))+'</small></div><button class="btn sm ghost" data-rm="'+id+'">권한 해제</button></div>'}).join(''):'<div class="sub">아직 없어요.</div>')+'</div>';
+    h+='<div class="card"><h3>팀 이름</h3><input class="fld" id="tmName" maxlength="20" value="'+esc(teamName)+'"><button class="btn ghost full" data-act="teamSave">저장</button></div>'}
+  if(canWrite()){
+    h+='<div class="card"><h3>분류 관리</h3>'+CATS.map(function(c,i){var n=songs.filter(function(s){return s.cats.indexOf(c.n)>-1}).length;return '<div class="mrow"><div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;background:'+(CV[c.c]||c.c)+'"></span><b>'+esc(c.n)+'</b> <small style="display:inline">'+n+'곡</small></div><button class="btn sm ghost" data-cd="'+i+'">'+(cmArm===i?'정말 삭제?':'삭제')+'</button></div>'}).join('')+'<div style="display:flex;gap:8px;margin-top:10px"><input class="fld" id="cmName" maxlength="8" placeholder="새 분류 이름" style="margin:0"><button class="btn sm" data-act="catAdd">추가</button></div></div>'}
+  if(canWrite()){
+    h+='<div class="card"><h3>클로드 데이터 가져오기</h3><p class="sub">클로드에서 내려받은 백업 파일(.json)을 선택하면 곡과 악보를 한 번에 불러옵니다.</p><label class="btn ghost full" style="margin:0;cursor:pointer">📂 백업 파일 선택 (.json)<input type="file" id="impJson" accept=".json,application/json" hidden></label></div>'}
+  h+='<div class="card"><h3>앱 공유</h3><p class="sub">이 링크를 인도자들에게 보내 주세요.</p><input class="fld" id="shLink" readonly value="'+esc(SHARE)+'"><button class="btn ghost full" data-act="copy">링크 복사</button></div>';
+  if(canWrite()&&localSongs().length)h+='<div class="card"><h3>이 기기의 예전 곡</h3><p class="sub">예전 버전에서 이 기기에 저장된 곡 '+localSongs().length+'곡이 있어요.</p><button class="btn ghost full" data-act="imp">공유 목록으로 가져오기</button></div>';
+  if(IS_SB)h+='<div class="card"><h3>계정</h3><p class="sub">'+esc(myEmail)+'</p><button class="btn ghost full danger" data-act="logout">로그아웃</button></div>';
+  return h;
+}
+
+/* ---------- 데이터 구독 ---------- */
+function startSubs(){
+  db.collection('songs').orderBy('at','desc').onSnapshot(function(s){songs=(s.docs||[]).map(function(d){var x=d.data();return{id:d.id,title:x.title||'',lyric:x.lyric||'',yt:x.yt||'',key:x.key||'C',cats:x.cats||[],imgs:x.imgs||[],at:x.at||0}});render();pkDraw()},function(){toast('곡 목록을 불러오지 못했어요')});
+  db.collection('sheets').orderBy('at','desc').onSnapshot(function(s){sheets=(s.docs||[]).map(function(d){var x=d.data();return{id:d.id,title:x.title||'',key:x.key||'C',imgs:x.imgs||[],at:x.at||0}});render();pkDraw()},function(){});
+  db.collection('contis').orderBy('at','desc').onSnapshot(function(s){contis=(s.docs||[]).map(function(d){var x=d.data();return{id:d.id,name:x.name||'',date:x.date||'',topic:x.topic||'',songs:x.songs||[],pages:x.pages||[],at:x.at||0}});render()},function(){});
+  db.collection('members').onSnapshot(function(s){members=mapDocs(s);render()},function(){});
+  db.doc('requests/'+myId).onSnapshot(function(s){myReq=s.exists?s.data():null;render()},function(){});
+  db.doc('settings/cats').onSnapshot(function(s){var d=s.exists?s.data():null,l=d&&d.list;if(l&&l.length)CATS=l.filter(function(c){return c&&typeof c.n==='string'&&typeof c.c==='string'});if(fCat&&!CATS.some(function(c){return c.n===fCat}))fCat='';render();drawSong()},function(){});
+  db.doc('settings/team').onSnapshot(function(s){var d=s.exists?s.data():null;if(d&&d.name)teamName=d.name;render()},function(){});
+  if(isOwner)db.collection('requests').onSnapshot(function(s){requests=mapDocs(s);render()},function(){});
+}
+function mapDocs(snap){var o={};(snap.docs||[]).forEach(function(d){o[d.id]=d.data()});return o}
+function saveCats(l){return db.doc('settings/cats').set({list:l}).catch(function(){toast('저장 권한이 없거나 오류가 났어요')})}
+function addCat(n){n=(n||'').trim();if(!n){toast('분류 이름을 입력해 주세요');return Promise.resolve(false)}
+  if(CATS.some(function(c){return c.n===n})){toast('이미 있는 분류예요');return Promise.resolve(false)}
+  return saveCats(CATS.concat([{n:n,c:PAL[CATS.length%PAL.length]}])).then(function(){return true})}
+
+/* ---------- 이벤트 ---------- */
+document.addEventListener('click',function(e){var c=e.target.closest('[data-close]');if(c)$(c.getAttribute('data-close')).classList.remove('show')});
+$('tabs').onclick=function(e){var b=e.target.closest('[data-tab]');if(!b)return;tab=b.getAttribute('data-tab');window.scrollTo(0,0);render()};
+$('fab').onclick=function(){if(tab==='songs')sub==='list'?openSong():openSheet();else if(tab==='conti')openConti()};
+document.addEventListener('input',function(e){if(e.target.id==='q'){q=e.target.value;updSongs()}});
+document.addEventListener('change',function(e){if(e.target&&e.target.id==='impJson'&&e.target.files&&e.target.files[0]){importBackupJson(e.target.files[0]);e.target.value=''}});
+$('main').onclick=function(e){
+  var el=e.target.closest('[data-sub],[data-g],[data-s],[data-h],[data-c],[data-act],[data-ok],[data-no],[data-rm],[data-cd]');if(!el)return;
+  var d=el.dataset;
+  if(d.sub){sub=d.sub;render();return}
+  if(d.g!==undefined){if(d.g==='k')fKey=d.v;else if(d.g==='c')fCat=d.v;else shKey=d.v;render();return}
+  if(d.s){openView('s',d.s);return}
+  if(d.h){openView('h',d.h);return}
+  if(d.c){openView('c',d.c);return}
+  if(d.ok){var reqObj=requests[d.ok]||{};db.doc('members/'+d.ok).set({note:reqObj.note||'',memo:reqObj.memo||'',email:reqObj.email||'',at:Date.now()}).then(function(){return db.doc('requests/'+d.ok).delete()}).catch(function(){toast('처리하지 못했어요')});return}
+  if(d.no){db.doc('requests/'+d.no).delete().catch(function(){toast('처리하지 못했어요')});return}
+  if(d.rm){db.doc('members/'+d.rm).delete().catch(function(){toast('처리하지 못했어요')});return}
+  if(d.cd!==undefined){var i=+d.cd;if(cmArm===i){cmArm=null;saveCats(CATS.filter(function(c,j){return j!==i}))}else{cmArm=i;render();setTimeout(function(){if(cmArm===i){cmArm=null;render()}},3000)}return}
+  var a=d.act;
+  if(a==='newConti')openConti();
+  if(a==='req'){var n=$('rName').value.trim();if(!n){toast('이름을 입력해 주세요');return}
+    db.doc('requests/'+myId).set({note:n,memo:($('rMemo').value||'').trim(),email:myEmail,at:Date.now()}).then(function(){toast('요청을 보냈어요')},function(){toast('요청을 보내지 못했어요')})}
+  if(a==='teamSave'){var t=$('tmName').value.trim();if(t)db.doc('settings/team').set({name:t}).then(function(){toast('저장했어요')},function(){toast('저장하지 못했어요')})}
+  if(a==='catAdd')addCat($('cmName').value).then(function(ok){if(ok)toast('분류를 추가했어요')});
+  if(a==='copy'){var i2=$('shLink');i2.focus();i2.select();var ok=false;try{ok=document.execCommand('copy')}catch(x){}
+    if(ok)toast('링크를 복사했어요');else if(navigator.clipboard)navigator.clipboard.writeText(i2.value).then(function(){toast('링크를 복사했어요')},function(){toast('링크를 길게 눌러 복사해 주세요')});else toast('링크를 길게 눌러 복사해 주세요')}
+  if(a==='imp')importLocal();
+  if(a==='logout')doLogout();
+};
+['bkSong','bkSheet','bkConti','bkPick','bkView','bkSf'].forEach(function(i){$(i).innerHTML=ic('back')});
+$('pkIc').innerHTML=ic('search');
+
+/* ---------- 키 선택기 ---------- */
+var KS={song:{minor:false,base:'C'},sheet:{minor:false,base:'C'}};
+function kpInit(id,host){$(host).innerHTML='<div class="seg" data-kp="'+id+'"><button data-m="0">장조</button><button data-m="1">단조</button></div><div class="kgrid" data-kg="'+id+'">'+KEYS.map(function(k){return '<button data-k="'+k+'">'+k+'</button>'}).join('')+'</div>'}
+function kpDraw(id){var s=KS[id],h=document.querySelector('[data-kp="'+id+'"]');
+  h.children[0].className=s.minor?'':'on';h.children[1].className=s.minor?'on':'';
+  Array.prototype.forEach.call(document.querySelector('[data-kg="'+id+'"]').children,function(b){b.className=b.getAttribute('data-k')===s.base?'on':''})}
+function kpVal(id){return KS[id].base+(KS[id].minor?'m':'')}
+function kpSet(id,key){KS[id]={minor:/m$/.test(key),base:key.replace(/m$/,'')};kpDraw(id)}
+kpInit('song','kpSong');kpInit('sheet','kpSheet');kpDraw('song');kpDraw('sheet');
+document.addEventListener('click',function(e){
+  var m=e.target.closest('[data-kp] button');if(m){var id=m.parentNode.getAttribute('data-kp');KS[id].minor=m.getAttribute('data-m')==='1';kpDraw(id);return}
+  var k=e.target.closest('[data-kg] button');if(k){var id2=k.parentNode.getAttribute('data-kg');KS[id2].base=k.getAttribute('data-k');kpDraw(id2)}});
+
+/* ---------- 이미지 업로드 ---------- */
+function shrink(file){return new Promise(function(res){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){
+  var w=Math.min(1400,im.width),h=im.height*w/im.width,c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
+  c.toBlob(function(b){res(b)},'image/jpeg',.75)};im.onerror=function(){res(null)};im.src=r.result};r.onerror=function(){res(null)};r.readAsDataURL(file)})}
+function uploadFiles(files,arr,done){
+  if(!assets){toast('이 계정에서는 악보 업로드를 사용할 수 없어요');return}
+  toast('악보 올리는 중…');
+  Promise.all(Array.prototype.map.call(files,function(f){return shrink(f).then(function(b){return b?assets.upload(b):null}).catch(function(){return null})}))
+  .then(function(a){a.forEach(function(r){if(r&&r.url)arr.push(r.url)});done()})}
+function thumbsHTML(arr){return arr.map(function(d,i){return '<div><img src="'+esc(d)+'" alt="악보 '+(i+1)+'"><b data-i="'+i+'">×</b></div>'}).join('')}
+
+/* ---------- 곡 등록 ---------- */
+var editId=null,fCats=[],fImgs=[],ncOpen=false;
+function drawSong(){
+  $('fCats').innerHTML=CATS.map(function(c){return '<button type="button" class="chip'+(fCats.indexOf(c.n)>-1?' on':'')+'" data-fc="'+esc(c.n)+'">'+esc(c.n)+'</button>'}).join('')+'<button type="button" class="chip dash" id="ncBtn">＋ 새 분류</button>';
+  $('newCat').style.display=ncOpen?'flex':'none';
+  $('fThumbs').innerHTML=thumbsHTML(fImgs)}
+function openSong(id){
+  editId=id||null;var s=songs.filter(function(x){return x.id===id})[0];
+  $('psT').textContent=s?'곡 수정':'곡 등록';
+  $('fTitle').value=s?s.title:'';$('fLyric').value=s?s.lyric:'';$('fYt').value=s?s.yt:'';$('fFile').value='';
+  kpSet('song',s?s.key:'C');fCats=s?s.cats.slice():[];fImgs=s?s.imgs.slice():[];ncOpen=false;
+  drawSong();$('pgSong').classList.add('show')}
+$('fCats').onclick=function(e){
+  if(e.target.id==='ncBtn'){ncOpen=!ncOpen;drawSong();return}
+  var c=e.target.getAttribute('data-fc');if(!c)return;var i=fCats.indexOf(c);i>-1?fCats.splice(i,1):fCats.push(c);drawSong()};
+$('ncAdd').onclick=function(){var n=$('ncName').value.trim();addCat(n).then(function(ok){if(ok){fCats.push(n);$('ncName').value='';ncOpen=false;drawSong()}})};
+$('fThumbs').onclick=function(e){var i=e.target.getAttribute('data-i');if(i!==null){fImgs.splice(+i,1);drawSong()}};
+$('fFile').onchange=function(e){uploadFiles(e.target.files,fImgs,function(){e.target.value='';drawSong()})};
+$('sgSave').onclick=function(){
+  var t=$('fTitle').value.trim();if(!t){toast('곡 제목을 입력해 주세요');return}
+  var id=editId||String(Date.now()),old=songs.filter(function(x){return x.id===id})[0];
+  db.doc('songs/'+id).set({title:t,lyric:$('fLyric').value.trim(),yt:$('fYt').value.trim(),key:kpVal('song'),cats:fCats.slice(),imgs:fImgs.slice(),at:old?old.at:Date.now()})
+  .then(function(){$('pgSong').classList.remove('show');toast('저장했어요')},function(){toast('저장 권한이 없거나 오류가 났어요')})};
+
+/* ---------- 악보 추가 ---------- */
+var shImgs=[];
+function openSheet(){$('shTitle').value='';shImgs=[];kpSet('sheet','C');$('shThumbs').innerHTML='';$('songList').innerHTML=songs.map(function(s){return '<option value="'+esc(s.title)+'">'}).join('');$('pgSheet').classList.add('show')}
+$('shFile').onchange=function(e){uploadFiles(e.target.files,shImgs,function(){e.target.value='';$('shThumbs').innerHTML=thumbsHTML(shImgs)})};
+$('shThumbs').onclick=function(e){var i=e.target.getAttribute('data-i');if(i!==null){shImgs.splice(+i,1);$('shThumbs').innerHTML=thumbsHTML(shImgs)}};
+$('shSave').onclick=function(){
+  if(!shImgs.length){toast('악보 이미지를 먼저 추가해 주세요');return}
+  db.doc('sheets/'+Date.now()).set({title:$('shTitle').value.trim(),key:kpVal('sheet'),imgs:shImgs.slice(),at:Date.now()})
+  .then(function(){$('pgSheet').classList.remove('show');sub='sheets';render();toast('악보 보관함에 저장했어요')},function(){toast('저장 권한이 없거나 오류가 났어요')})};
+
+/* ---------- 상세 보기 ---------- */
+var V={kind:'',id:'',imgs:[],title:'',raw:'',key:null};
+function getObj(k,id){return k==='s'?songs.filter(function(x){return x.id===id})[0]:k==='h'?sheets.filter(function(x){return x.id===id})[0]:contis.filter(function(x){return x.id===id})[0]}
+function openView(kind,id){var o=getObj(kind,id);if(!o)return;V.kind=kind;V.id=id;vArm=false;
+  if(kind==='c'){V.imgs=o.pages;V.raw=o.name;V.title=o.name;V.key=null}
+  else{V.imgs=o.imgs;V.raw=o.title||'악보';V.key=o.key;V.title=V.raw+' '+o.key}
+  drawView();$('pgView').classList.add('show');$('vB').scrollTop=0}
+function drawView(){
+  var o=getObj(V.kind,V.id);if(!o){$('pgView').classList.remove('show');return}
+  var w=canWrite(),h='';$('vT').textContent=V.raw;
+  if(V.kind==='s'){var yt=safeUrl(o.yt);
+    h+='<div class="vi"><span class="kb sm">'+esc(o.key)+'</span><div class="rm"><div class="rt" style="white-space:normal">'+esc(o.title)+'</div>'+(o.lyric?'<div class="rl" style="white-space:normal">“'+esc(o.lyric)+'”</div>':'')+'</div></div>'+
+    (o.cats.length?'<div class="tags">'+o.cats.map(function(c){return '<span class="tag" style="background:'+catColor(c)+'">'+esc(c)+'</span>'}).join('')+'</div>':'');
+    h+='<div class="vbar">'+(yt?'<a class="btn sm" href="'+esc(yt)+'" target="_blank" rel="noopener">▶ 음원 듣기</a>':'')+(w?'<button class="btn sm ghost" data-va="edit">수정</button><button class="btn sm ghost danger" data-va="del">'+(vArm?'정말 삭제?':'삭제')+'</button>':'')+'</div>'}
+  else if(V.kind==='h'){h+='<div class="vi"><span class="kb sm">'+esc(o.key)+'</span><div class="rm"><div class="rt">'+esc(V.raw)+'</div><div class="rl">악보 보관함 · '+o.imgs.length+'장</div></div></div>'+(w?'<div class="vbar"><button class="btn sm ghost danger" data-va="del">'+(vArm?'정말 삭제?':'삭제')+'</button></div>':'')}
+  else{h+='<div class="rl" style="white-space:normal">'+esc(o.date?dstr(o.date):dstr(o.at))+' · '+o.songs.length+'곡</div>'+(o.topic?'<div class="card" style="margin-top:10px">'+esc(o.topic).replace(/\n/g,'<br>')+'</div>':'')+'<div class="rl" style="white-space:normal">'+o.songs.map(esc).join(' · ')+'</div>'+(w?'<div class="vbar"><button class="btn sm ghost danger" data-va="del">'+(vArm?'정말 삭제?':'삭제')+'</button></div>':'')}
+  if(V.imgs.length){h+='<div class="vbar">'+(downloads?'<button class="btn sm" data-va="pdf">⬇ PDF 저장</button><button class="btn sm ghost" data-va="img">⬇ 이미지 저장</button>':'')+(V.kind!=='c'&&w?'<button class="btn sm ghost" data-va="sf">✏ 송폼 쓰기</button>':'')+'</div><div class="vimgs">'+V.imgs.map(function(u,i){return '<img src="'+esc(u)+'" alt="악보 '+(i+1)+'">'}).join('')+'</div>'}
+  else h+='<div class="empty">등록된 악보가 없어요.</div>';
+  $('vB').innerHTML=h}
+$('vB').onclick=function(e){var b=e.target.closest('[data-va]');if(!b)return;var a=b.getAttribute('data-va');
+  if(a==='edit'){var id=V.id;$('pgView').classList.remove('show');openSong(id)}
+  if(a==='del'){if(vArm){vArm=false;var p=V.kind==='s'?'songs/':V.kind==='h'?'sheets/':'contis/';db.doc(p+V.id).delete().then(function(){$('pgView').classList.remove('show')},function(){toast('삭제하지 못했어요')})}else{vArm=true;drawView();setTimeout(function(){if(vArm){vArm=false;drawView()}},3000)}}
+  if(a==='pdf')pdfSave(V.imgs,fname()+'.pdf');
+  if(a==='img')imgSave();
+  if(a==='sf')openSf()};
+function fname(){return (V.title||'악보').replace(/[^0-9A-Za-z가-힣 _#()+-]/g,'').trim()||'악보'}
+async function getBlob(u){
+  try{var r=await fetch(u);if(r.ok)return await r.blob()}catch(e){}
+  return new Promise(function(res,rej){var im=new Image();im.crossOrigin='anonymous';im.onload=function(){var c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);c.toBlob(function(b){b?res(b):rej()},'image/jpeg',.92)};im.onerror=rej;im.src=u})}
+function blobToUrl(b){return new Promise(function(r){var f=new FileReader();f.onload=function(){r(f.result)};f.readAsDataURL(b)})}
+function imgSize(d){return new Promise(function(r){var i=new Image();i.onload=function(){r([i.width,i.height])};i.src=d})}
+function toBlob(d){var p=d.split(','),m=/:(.*?);/.exec(p[0]),b=atob(p[1]),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new Blob([u],{type:m?m[1]:'image/jpeg'})}
+async function imgSave(){if(!downloads)return;
+  for(var i=0;i<V.imgs.length;i++){try{await downloads.save({filename:fname()+(V.imgs.length>1?'_'+(i+1):'')+'.jpg',data:await getBlob(V.imgs[i])})}catch(e){if(e&&e.code==='declined')break;toast('저장하지 못했어요');break}}}
+async function pdfSave(imgs,filename){
+  var J=window.jspdf&&window.jspdf.jsPDF;if(!downloads||!J){toast('PDF 기능을 쓸 수 없어요. 이미지로 저장해 주세요');return}
+  toast('PDF 만드는 중…');
+  try{var pdf=null;
+    for(var i=0;i<imgs.length;i++){var d=await blobToUrl(await getBlob(imgs[i])),sz=await imgSize(d),w=sz[0],h=sz[1],o=w>h?'l':'p';
+      if(!pdf)pdf=new J({unit:'px',format:[w,h],orientation:o,hotfixes:['px_scaling']});else pdf.addPage([w,h],o);
+      pdf.addImage(d,'JPEG',0,0,w,h)}
+    if(pdf)await downloads.save({filename:filename,data:pdf.output('blob')})}
+  catch(e){if(!(e&&e.code==='declined'))toast('저장하지 못했어요')}}
+
+/* ---------- 송폼 ---------- */
+var SEC=['Intro','V','PC','C','B','Outro','간주'],MEAS=[1,4,8,16],sfImg=null,sfIdx=0;
+$('sfSec').innerHTML=SEC.map(function(t){return '<button class="btn sm" data-s="'+t+'">'+t+'</button>'}).join('');
+$('sfMeas').innerHTML=MEAS.map(function(n){return '<button class="btn sm ghost" data-m="'+n+'">'+n+'마디</button>'}).join('');
+function sfAdd(t,isSec){var v=$('sfText').value,re=/\((\d[\d+]*)마디\)\s*$/;
+  if(isSec)v=(v.trim()?v.replace(/\s+$/,'')+' ':'')+t;
+  else if(re.test(v))v=v.replace(re,'($1+'+t+'마디)');
+  else v=(v.trim()?v.replace(/\s+$/,'')+' ':'')+'('+t+'마디)';
+  $('sfText').value=v;sfDraw()}
+function sfPages(){$('sfPg').innerHTML=V.imgs.length>1?V.imgs.map(function(u,i){return '<button class="chip'+(i===sfIdx?' on':'')+'" data-i="'+i+'">'+(i+1)+'쪽</button>'}).join(''):''}
+async function sfLoad(){try{var b=await getBlob(V.imgs[sfIdx]),im=new Image();im.onload=function(){sfImg=im;sfDraw()};im.src=URL.createObjectURL(b)}catch(e){toast('악보를 불러오지 못했어요')}}
+function wrapLines(ctx,text,maxW){var out=[];String(text).split('\n').forEach(function(p){if(!p){out.push('');return}var line='';for(var i=0;i<p.length;i++){var t=line+p[i];if(ctx.measureText(t).width>maxW&&line){out.push(line);line=p[i]}else line=t}out.push(line)});return out}
+function sfDraw(){
+  if(!sfImg)return;
+  var W=Math.min(1400,sfImg.naturalWidth),H=Math.round(sfImg.naturalHeight*W/sfImg.naturalWidth),txt=$('sfText').value.trim();
+  var fs=Math.round(W/26),pad=Math.round(fs*.6),F='"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif',lines=[],head=0;
+  if(txt){var m=document.createElement('canvas').getContext('2d');m.font='800 '+fs+'px '+F;lines=wrapLines(m,txt,W-2*pad);head=Math.round(lines.length*fs*1.4+pad*2)}
+  var c=$('sfCv');c.width=W;c.height=H+head;var x=c.getContext('2d');
+  x.fillStyle='#ffffff';x.fillRect(0,0,W,H+head);
+  if(head){x.fillStyle='#fff6bf';x.fillRect(0,0,W,head);x.fillStyle='#d9c96a';x.fillRect(0,head-3,W,3);x.fillStyle='#1f2328';x.font='800 '+fs+'px '+F;x.textBaseline='top';lines.forEach(function(l,i){x.fillText(l,pad,pad+i*fs*1.4)})}
+  x.drawImage(sfImg,0,head,W,H)}
+function sfBlob(){return new Promise(function(r){$('sfCv').toBlob(function(b){r(b)},'image/jpeg',.9)})}
+function openSf(){if(!V.imgs.length)return;sfIdx=0;sfImg=null;$('sfText').value='';sfPages();$('pgSf').classList.add('show');sfLoad()}
+$('sfSec').onclick=function(e){var t=e.target.getAttribute('data-s');if(t)sfAdd(t,true)};
+$('sfMeas').onclick=function(e){var n=e.target.getAttribute('data-m');if(n)sfAdd(n,false)};
+$('sfNAdd').onclick=function(){var n=parseInt($('sfN').value,10);if(!(n>0&&n<=128)){toast('마디 수를 입력해 주세요');return}sfAdd(String(n),false);$('sfN').value=''};
+$('sfBack').onclick=function(){var p=$('sfText').value.trim().split(/\s+/);p.pop();$('sfText').value=p.join(' ');sfDraw()};
+$('sfClr').onclick=function(){$('sfText').value='';sfDraw()};
+$('sfText').oninput=sfDraw;
+$('sfPg').onclick=function(e){var i=e.target.getAttribute('data-i');if(i===null)return;sfIdx=+i;sfPages();sfLoad()};
+$('sfDl').onclick=async function(){if(!downloads||!sfImg){toast('저장 기능을 사용할 수 없어요');return}
+  try{await downloads.save({filename:fname()+'_송폼.jpg',data:await sfBlob()})}catch(e){if(!(e&&e.code==='declined'))toast('저장하지 못했어요')}};
+$('sfSave').onclick=async function(){
+  if(!$('sfText').value.trim()){toast('송폼을 먼저 만들어 주세요');return}
+  if(!db||!assets||!canWrite()){toast('저장 권한이 없어요');return}
+  try{toast('저장 중…');var b=await sfBlob(),r=await assets.upload(b);
+    await db.doc('sheets/'+Date.now()).set({title:(V.raw||'악보')+' (송폼)',key:V.key||'C',imgs:[r.url],at:Date.now()});
+    $('pgSf').classList.remove('show');toast('악보 보관함에 새 악보로 저장했어요')}catch(e){toast('저장하지 못했어요')}};
+
+/* ---------- 콘티 만들기 ---------- */
+var cSel=[],pkTab='s',pkQ='';
+function ent(e){var o=e.t==='s'?songs.filter(function(x){return x.id===e.id})[0]:sheets.filter(function(x){return x.id===e.id})[0];return o?{title:o.title||'악보',key:o.key,imgs:o.imgs,sheet:e.t==='h'}:null}
+function openConti(){cSel=[];$('cnName').value='';$('cnDate').value=today();$('cnTopic').value='';cnDraw();$('pgConti').classList.add('show')}
+function cnDraw(){
+  var items=cSel.map(function(e,i){return{i:i,o:ent(e)}}).filter(function(x){return x.o});
+  $('cnCount').textContent='선택한 곡 '+items.length;
+  $('cnList').innerHTML=items.length?items.map(function(x,n){return '<div class="crow"><div class="num">'+(n+1)+'</div><div class="rm"><div class="rt">'+esc(x.o.title)+'</div><div class="rl">'+esc(x.o.key)+' · '+(x.o.imgs.length?'악보 '+x.o.imgs.length+'장':'악보 없음')+(x.o.sheet?' · 악보 보관함':'')+'</div></div><div class="mv"><button data-mv="-1" data-i="'+x.i+'">▲</button><button data-mv="1" data-i="'+x.i+'">▼</button><button data-rmv="'+x.i+'">✕</button></div></div>'}).join(''):'<div class="sub" style="text-align:center;padding:12px 0">아래에서 곡을 추가해 주세요.</div>'}
+$('cnList').onclick=function(e){var mv=e.target.getAttribute('data-mv'),rm=e.target.getAttribute('data-rmv'),i=+e.target.getAttribute('data-i');
+  if(rm!==null){cSel.splice(+rm,1);cnDraw();return}
+  if(mv){var j=i+(+mv);if(j>=0&&j<cSel.length){var t=cSel[i];cSel[i]=cSel[j];cSel[j]=t}cnDraw()}};
+$('cnAdd').onclick=function(){pkTab='s';pkQ='';$('pkQ').value='';pkDraw();$('pgPick').classList.add('show')};
+$('pkDone').onclick=function(){$('pgPick').classList.remove('show');cnDraw()};
+document.querySelector('#pgPick .seg').onclick=function(e){var t=e.target.getAttribute('data-pt');if(!t)return;pkTab=t;pkDraw()};
+$('pkQ').oninput=function(){pkQ=this.value;pkDraw()};
+function pkDraw(){
+  if(!$('pgPick').classList.contains('show'))return;
+  $('pkS').className=pkTab==='s'?'on':'';$('pkH').className=pkTab==='h'?'on':'';
+  var ql=pkQ.trim().toLowerCase(),src=pkTab==='s'?songs:sheets;
+  var l=src.filter(function(o){return !ql||((o.title||'')+' '+(o.lyric||'')).toLowerCase().indexOf(ql)>-1});
+  $('pkList').innerHTML=l.length?'<div class="list">'+l.map(function(o){var idx=cSel.findIndex(function(e){return e.t===pkTab&&e.id===o.id});
+    return '<div class="row" data-pk="'+o.id+'"><div class="num" style="'+(idx>-1?'background:var(--acc);color:var(--accInk);border-color:var(--acc)':'')+'">'+(idx>-1?idx+1:'')+'</div><div class="kb sm">'+esc(o.key)+'</div><div class="rm"><div class="rt">'+esc(o.title||'제목 없음')+'</div><div class="rl">'+(pkTab==='s'?(o.lyric?esc(o.lyric):'악보 '+o.imgs.length+'장'):o.imgs.length+'장')+'</div></div></div>'}).join('')+'</div>':'<div class="empty">'+(pkTab==='s'?'등록된 곡이 없어요.':'악보 보관함이 비어 있어요.')+'</div>'}
+$('pkList').onclick=function(e){var r=e.target.closest('[data-pk]');if(!r)return;var id=r.getAttribute('data-pk'),i=cSel.findIndex(function(x){return x.t===pkTab&&x.id===id});
+  if(i>-1)cSel.splice(i,1);else cSel.push({t:pkTab,id:id});pkDraw()};
+function coverPages(name,dateStr,topic,items){
+  var W=1240,H=1754,M=110,pages=[],c,x,y,F='"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
+  function np(){c=document.createElement('canvas');c.width=W;c.height=H;x=c.getContext('2d');x.fillStyle='#ffffff';x.fillRect(0,0,W,H);x.textBaseline='top';y=M;pages.push(c)}
+  function put(text,size,weight,color,gap){x.font=weight+' '+size+'px '+F;x.fillStyle=color;wrapLines(x,text,W-2*M).forEach(function(l){if(y+size*1.5>H-M){np();x.font=weight+' '+size+'px '+F;x.fillStyle=color}x.fillText(l,M,y);y+=size*1.5});y+=gap}
+  np();put(name,64,'800','#1f2328',6);put(dateStr,28,'400','#6b7280',20);
+  x.fillStyle='#d9d9d4';x.fillRect(M,y,W-2*M,3);y+=36;
+  if(topic){put('말씀 · 주제',30,'700','#6b7280',8);put(topic,36,'400','#1f2328',36)}
+  put('콘티 순서',30,'700','#6b7280',8);
+  items.forEach(function(s,i){put((i+1)+'. '+s.title+'  ['+s.key+']',36,'600','#1f2328',6)});
+  return pages.map(function(p){return p.toDataURL('image/jpeg',.92)})}
+$('cnPdf').onclick=async function(){
+  var J=window.jspdf&&window.jspdf.jsPDF;if(!downloads||!J){toast('PDF 저장 기능을 사용할 수 없어요');return}
+  var name=$('cnName').value.trim(),date=$('cnDate').value||today(),topic=$('cnTopic').value.trim();
+  if(!name){toast('콘티 이름을 입력해 주세요');return}
+  var items=cSel.map(ent).filter(Boolean);
+  if(!items.length){toast('곡을 한 곡 이상 추가해 주세요');return}
+  toast('PDF 만드는 중…');
+  try{
+    var pdf=new J({unit:'pt',format:'a4',orientation:'p'}),first=true,skipped=0;
+    var addImg=function(d,w,h){var land=w>h,pw=land?842:595,ph=land?595:842;if(first)first=false;else pdf.addPage([pw,ph],land?'l':'p');var r=Math.min(pw/w,ph/h),dw=w*r,dh=h*r;pdf.addImage(d,'JPEG',(pw-dw)/2,(ph-dh)/2,dw,dh)};
+    var covers=coverPages(name,dstr(date),topic,items);covers.forEach(function(d){addImg(d,1240,1754)});
+    for(var i=0;i<items.length;i++){if(!items[i].imgs.length){skipped++;continue}
+      for(var j=0;j<items[i].imgs.length;j++){var d=await blobToUrl(await getBlob(items[i].imgs[j])),sz=await imgSize(d);addImg(d,sz[0],sz[1])}}
+    await downloads.save({filename:(name.replace(/[^0-9A-Za-z가-힣 _#()+-]/g,'').trim()||'콘티')+'.pdf',data:pdf.output('blob')});
+    var kept=await keepConti(name,date,topic,items,covers);
+    $('pgConti').classList.remove('show');tab='conti';render();
+    toast(kept?'PDF를 저장하고 콘티 보관함에도 담았어요':(skipped?'악보가 없는 '+skipped+'곡은 순서에만 포함됐어요':'PDF를 저장했어요'))
+  }catch(e){if(!(e&&e.code==='declined'))toast('PDF를 만들지 못했어요')}};
+async function keepConti(name,date,topic,items,covers){
+  if(!canWrite()||!assets||!db)return false;
+  try{var urls=[];for(var i=0;i<covers.length;i++){var r=await assets.upload(toBlob(covers[i]));urls.push(r.url)}
+    var pages=urls.slice();items.forEach(function(s){(s.imgs||[]).forEach(function(u){pages.push(u)})});
+    await db.doc('contis/'+Date.now()).set({name:name,date:date,topic:topic,songs:items.map(function(s){return s.title+' ['+s.key+']'}),pages:pages,at:Date.now()});return true}catch(e){return false}}
+
+/* ---------- 백업 파일(.json) 및 예전 곡 가져오기 ---------- */
+function safeAt(v,fb){var n=Number(v);return(isFinite(n)&&n>0)?Math.floor(n):fb}
+async function uploadDataUrlIfNeeded(u){
+  if(typeof u==='string'&&/^data:image\//.test(u)&&assets){
+    try{var r=await assets.upload(toBlob(u));if(r&&r.url)return r.url}catch(e){}
+  }
+  return u;
+}
+async function importBackupJson(file){
+  if(!db||!canWrite()){toast('관리자 로그인 후 이용할 수 있어요');return}
+  try{
+    toast('백업 파일을 읽는 중…');
+    var txt=await file.text();
+    if(!txt||!txt.trim())throw new Error('선택한 파일 내용이 비어 있습니다.');
+    var data;
+    try{data=JSON.parse(txt)}catch(pe){throw new Error('올바른 JSON 형식이 아닙니다: '+pe.message)}
+    var sList=Array.isArray(data)?data:(Array.isArray(data.songs)?data.songs:[]);
+    var hList=Array.isArray(data.sheets)?data.sheets:[];
+    var cList=Array.isArray(data.contis)?data.contis:[];
+    var catList=Array.isArray(data.cats)?data.cats.filter(function(c){return c&&typeof c.n==='string'&&typeof c.c==='string'}):[];
+    if(!sList.length&&!hList.length&&!cList.length)throw new Error('백업 파일 안에 저장된 곡 데이터가 없습니다 (0곡).');
+    var sOk=0,hOk=0,cOk=0;
+
+    if(catList.length){await db.doc('settings/cats').set({list:catList})}
+    for(var i=0;i<sList.length;i++){
+      var s=sList[i],urls=[],rawImgs=Array.isArray(s.imgs)?s.imgs:[];
+      for(var j=0;j<rawImgs.length;j++)urls.push(await uploadDataUrlIfNeeded(rawImgs[j]));
+      var sid=String(s.id||(Date.now()+i));
+      await db.doc('songs/'+sid).set({title:s.title||'',lyric:s.lyric||'',yt:s.yt||'',key:s.key||'C',cats:Array.isArray(s.cats)?s.cats:[],imgs:urls,at:safeAt(s.at,Date.now()-i)});
+      sOk++;toast('곡 가져오는 중… ('+sOk+'/'+sList.length+')');
+    }
+    for(var i=0;i<hList.length;i++){
+      var h=hList[i],urls=[],rawImgs=Array.isArray(h.imgs)?h.imgs:[];
+      for(var j=0;j<rawImgs.length;j++)urls.push(await uploadDataUrlIfNeeded(rawImgs[j]));
+      var hid=String(h.id||(Date.now()+10000+i));
+      await db.doc('sheets/'+hid).set({title:h.title||'',key:h.key||'C',imgs:urls,at:safeAt(h.at,Date.now()-i)});
+      hOk++;
+    }
+    for(var i=0;i<cList.length;i++){
+      var c=cList[i],pUrls=[],rawPages=Array.isArray(c.pages)?c.pages:[];
+      for(var j=0;j<rawPages.length;j++)pUrls.push(await uploadDataUrlIfNeeded(rawPages[j]));
+      var cid=String(c.id||(Date.now()+20000+i));
+      await db.doc('contis/'+cid).set({name:c.name||'',date:c.date||'',topic:c.topic||'',songs:Array.isArray(c.songs)?c.songs:[],pages:pUrls,at:safeAt(c.at,Date.now()-i)});
+      cOk++;
+    }
+    toast('가져오기 완료! (곡 '+sOk+'개, 악보 '+hOk+'개, 콘티 '+cOk+'개)');
+  }catch(err){
+    var msg=(err&&(err.message||err.error_description||err.details||JSON.stringify(err)))||'알 수 없는 오류';
+    alert('가져오기 실패 원인:\n'+msg);
+  }
+}
+
+function localSongs(){try{if(localStorage.getItem('worshipSongs.v1.done'))return[];return JSON.parse(localStorage.getItem('worshipSongs.v1')||'[]')}catch(e){return[]}}
+var importing=false;
+async function importLocal(){
+  if(importing)return;importing=true;toast('가져오는 중…');var ls=localSongs(),ok=0,skip=0;
+  for(var i=0;i<ls.length;i++){var s=ls[i],urls=[];
+    for(var j=0;j<(s.imgs||[]).length;j++){var d=s.imgs[j];if(/^data:/.test(d)){if(!assets){skip++;continue}try{var r=await assets.upload(toBlob(d));urls.push(r.url)}catch(e){skip++}}else urls.push(d)}
+    try{await db.doc('songs/'+s.id).set({title:s.title||'',lyric:s.lyric||'',yt:s.yt||'',key:s.key||'C',cats:s.cats||[],imgs:urls,at:Date.now()-i});ok++}catch(e){}}
+  importing=false;if(ok===ls.length){try{localStorage.setItem('worshipSongs.v1.done','1')}catch(e){}}
+  toast(ok+'곡을 가져왔어요'+(skip?' (악보 '+skip+'장 제외)':''));render()}
+
+/* ---------- Supabase 연결 어댑터 (이메일·비밀번호 간편 로그인) ---------- */
+var IS_SB=true,SHARE=window.location.origin,sb=null;
+function gateHTML(){
+  return '<div class="gt">'+
+    '<div class="gi">🎶</div>'+
+    '<h2 style="margin:0">찬양 곡 노트 로그인</h2>'+
+    '<p class="sub" style="margin:0 0 8px">이메일과 비밀번호를 입력해 로그인하거나 새 계정을 만드세요.</p>'+
+    '<input class="fld" id="gEmail" type="email" placeholder="이메일 주소 (예: name@gmail.com)" style="margin:0">'+
+    '<input class="fld" id="gPw" type="password" placeholder="비밀번호 (6자 이상)" style="margin:0">'+
+    '<button class="btn" id="gLogin">로그인</button>'+
+    '<button class="btn ghost" id="gSignup">이 정보로 처음 회원가입</button>'+
+  '</div>';
+}
+function gateBind(){
+  var l=$('gLogin'),s=$('gSignup');
+  if(l)l.onclick=async function(){
+    var em=$('gEmail').value.trim(),pw=$('gPw').value;
+    if(!em||!pw){toast('이메일과 비밀번호를 입력해 주세요');return}
+    toast('로그인 중…');
+    var res=await sb.auth.signInWithPassword({email:em,password:pw});
+    if(res.error){toast('로그인 실패: 이메일 또는 비밀번호를 확인해 주세요');return}
+    location.reload();
+  };
+  if(s)s.onclick=async function(){
+    var em=$('gEmail').value.trim(),pw=$('gPw').value;
+    if(!em||pw.length<6){toast('이메일과 6자 이상 비밀번호를 입력해 주세요');return}
+    toast('가입 처리 중…');
+    var res=await sb.auth.signUp({email:em,password:pw});
+    if(res.error){toast('가입 실패: '+res.error.message);return}
+    if(res.data&&res.data.session){location.reload();return}
+    var res2=await sb.auth.signInWithPassword({email:em,password:pw});
+    if(res2.error){toast('Supabase에서 Confirm email 스위치를 꺼주세요');return}
+    location.reload();
+  };
+}
+function doLogout(){if(sb)sb.auth.signOut().then(function(){location.reload()})}
+
+function createSbDb(client){
+  function makeSnap(rows){
+    return {docs:rows.map(function(r){return{id:r.id,data:function(){return r.data||{}}}})};
+  }
+  return {
+    collection:function(colName){
+      var ordCol=null,ordAsc=true;
+      var qObj={
+        orderBy:function(f,dir){ordCol=f;ordAsc=dir!=='desc';return qObj},
+        onSnapshot:function(cb,errCb){
+          async function load(){
+            var query=client.from('kv_docs').select('*').eq('col',colName);
+            if(ordCol==='at')query=query.order('at',{ascending:ordAsc});
+            var res=await query;
+            if(res.error){if(errCb)errCb(res.error);return}
+            cb(makeSnap(res.data||[]));
+          }
+          load();
+          client.channel('col_'+colName+'_'+Math.random())
+            .on('postgres_changes',{event:'*',schema:'public',table:'kv_docs',filter:'col=eq.'+colName},load)
+            .subscribe();
+        }
+      };
+      return qObj;
+    },
+    doc:function(path){
+      var parts=path.split('/'),colName=parts[0],docId=parts[1];
+      return {
+        onSnapshot:function(cb,errCb){
+          async function load(){
+            var res=await client.from('kv_docs').select('*').eq('col',colName).eq('id',docId).maybeSingle();
+            if(res.error){if(errCb)errCb(res.error);return}
+            cb({exists:!!res.data,data:function(){return res.data?res.data.data:null}});
+          }
+          load();
+          client.channel('doc_'+colName+'_'+docId+'_'+Math.random())
+            .on('postgres_changes',{event:'*',schema:'public',table:'kv_docs',filter:'col=eq.'+colName},load)
+            .subscribe();
+        },
+        set:async function(obj){
+          var res=await client.from('kv_docs').upsert({col:colName,id:docId,data:obj,at:safeAt(obj.at,Date.now())});
+          if(res.error)throw res.error;
+        },
+        delete:async function(){
+          var res=await client.from('kv_docs').delete().eq('col',colName).eq('id',docId);
+          if(res.error)throw res.error;
+        }
+      };
+    }
+  };
+}
+
+(async function(){
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  var sessRes=await sb.auth.getSession();
+  var u=sessRes.data&&sessRes.data.session&&sessRes.data.session.user;
+  if(!u){needCfg=true;ready=true;render();return}
+  myId=u.id;
+  myEmail=u.email||'';
+  isOwner=myEmail.toLowerCase()===OWNER_EMAIL.toLowerCase();
+  db=createSbDb(sb);
+  assets={
+    upload:async function(blob){
+      var path=Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
+      var up=await sb.storage.from('sheets').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+      if(up.error)throw up.error;
+      return {url:sb.storage.from('sheets').getPublicUrl(path).data.publicUrl};
+    }
+  };
+  downloads={
+    save:async function(opts){
+      var u2=URL.createObjectURL(opts.data),a=document.createElement('a');
+      a.href=u2;a.download=opts.filename||'download';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(u2)},1000);
+    }
+  };
+  ready=true;
+  startSubs();
+  render();
+})();
+</script>
+</body>
+</html>.kb.sm{width:46px;height:46px;font-size:1rem;border-radius:13px}
+.rm{flex:1;min-width:0}
+.rt{font-weight:700;font-size:1.08rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rl{color:var(--sub);font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ri{flex:none;display:flex;align-items:center;gap:4px;color:var(--sub)}
+.ri .ic{width:20px;height:20px}
+.empty{text-align:center;color:var(--sub);padding:40px 10px}
+.empty2{display:flex;flex-direction:column;align-items:center;text-align:center;padding:70px 20px;gap:6px}
+.empty2 .eic{width:84px;height:84px;border-radius:24px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.empty2 h3{margin:0;font-size:1.15rem}.empty2 p{margin:0 0 16px;color:var(--sub)}
+.btn{background:var(--acc);color:var(--accInk);border:1px solid var(--acc);border-radius:14px;padding:12px 22px;font-weight:700;text-decoration:none;display:inline-block;text-align:center}
+.btn.ghost{background:var(--card);color:var(--ink);border-color:var(--line)}
+.btn.sm{padding:8px 14px;font-size:.88rem;border-radius:11px}
+.btn.full{width:100%}
+.btn.danger{color:var(--red)}
+.fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--acc);color:var(--accInk);border:0;border-radius:999px;padding:16px 24px;font-weight:700;font-size:1.02rem;display:none;align-items:center;gap:8px;box-shadow:0 8px 22px rgba(0,0,0,.22);z-index:30}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));z-index:30}
+.tabs button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--sub);font-size:.8rem;font-weight:600}
+.tabs button.on{color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:14px}
+.card h3{margin:0 0 12px;font-size:.92rem;color:var(--sub);font-weight:600}
+.card .big{font-size:1.2rem;font-weight:800;margin-bottom:6px}
+.card p{margin:6px 0 10px}
+label{display:block;font-weight:700;margin:14px 0 6px}
+label i{color:#c0392b;font-style:normal}
+.fld{width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;outline:none;margin-bottom:8px}
+textarea.fld{resize:vertical;min-height:110px}
+.fld:focus{border-color:var(--sub)}
+.kgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.kgrid button{padding:13px 0;border:1px solid var(--line);background:var(--card);border-radius:14px;font-weight:700}
+.kgrid button.on{background:var(--acc);color:var(--accInk);border-color:var(--acc)}
+.pick{display:flex;gap:8px;flex-wrap:wrap}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.tag{font-size:.78rem;padding:3px 10px;border-radius:999px;color:#2b2b2b;font-weight:600}
+.thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.thumbs div{position:relative}
+.thumbs img{height:84px;border-radius:10px;border:1px solid var(--line);display:block}
+.thumbs b{position:absolute;top:-7px;right:-7px;background:var(--red);color:#fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:22px;font-size:.8rem;cursor:pointer}
+.page{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:50}
+.page.show{display:flex}
+.ph{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;flex:none}
+.ph h2{margin:0;font-size:1.1rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk{border:0;background:none;padding:8px;display:flex}
+.pb{flex:1;overflow-y:auto;padding:8px 16px 24px;max-width:680px;width:100%;margin:0 auto}
+.pf{display:flex;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--bg);flex:none}
+.pf .btn{flex:1}
+.pf .btn:last-child{flex:1.4}
+.vbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.vimgs img{width:100%;border-radius:12px;margin-bottom:10px;background:#fff;border:1px solid var(--line)}
+.vi{display:flex;gap:12px;align-items:center}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.sc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;cursor:pointer}
+.sc img{width:100%;height:140px;object-fit:cover;object-position:top;border-radius:9px;background:#fff;border:1px solid var(--line);display:block}
+.st{font-weight:700;font-size:.88rem;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kh{display:flex;align-items:center;gap:8px;margin:18px 0 8px}
+.mrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.mrow:first-of-type{border-top:0}
+.mrow small{color:var(--sub);display:block}
+.num{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem}
+.on>.num,.crow .num{background:var(--acc);color:var(--accInk);border-color:var(--acc)}
+.crow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.crow:first-child{border-top:0}
+.mv{display:flex;gap:4px}
+.mv button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:4px 9px}
+.sfb{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.sfb input{width:90px;border:1px solid var(--line);border-radius:11px;padding:8px 10px;background:var(--card)}
+.sfprev{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.sfprev canvas{width:100%;display:block}
+#gate{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
+.gt{width:100%;max-width:360px;text-align:center;display:flex;flex-direction:column;gap:10px}
+.gt .gi{font-size:2.6rem}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--acc);color:var(--accInk);padding:10px 18px;border-radius:12px;display:none;z-index:200;font-size:.92rem;max-width:90%;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hd"><h1 id="tName">찬양 곡 노트</h1><span class="sub" id="hCount"></span></div>
+  <div id="main"></div>
+</div>
+<button class="fab" id="fab"></button>
+<nav class="tabs" id="tabs"></nav>
+
+<div class="page" id="pgSong"><div class="ph"><button class="bk" data-close="pgSong" id="bkSong"></button><h2 id="psT">곡 등록</h2></div>
+ <div class="pb">
+  <div class="card"><h3>기본 정보</h3>
+   <label style="margin-top:0">곡 제목 <i>*</i></label><input class="fld" id="fTitle" placeholder="곡 제목">
+   <label>가사 한 줄</label><input class="fld" id="fLyric" maxlength="80" placeholder="목록에서 곡을 알아볼 대표 가사">
    <label>음원 유튜브 링크</label><input class="fld" id="fYt
