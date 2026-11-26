@@ -273,6 +273,8 @@ function vTeam(){
     h+='<div class="card"><h3>팀 이름</h3><input class="fld" id="tmName" maxlength="20" value="'+esc(teamName)+'"><button class="btn ghost full" data-act="teamSave">저장</button></div>'}
   if(canWrite()){
     h+='<div class="card"><h3>분류 관리</h3>'+CATS.map(function(c,i){var n=songs.filter(function(s){return s.cats.indexOf(c.n)>-1}).length;return '<div class="mrow"><div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;background:'+(CV[c.c]||c.c)+'"></span><b>'+esc(c.n)+'</b> <small style="display:inline">'+n+'곡</small></div><button class="btn sm ghost" data-cd="'+i+'">'+(cmArm===i?'정말 삭제?':'삭제')+'</button></div>'}).join('')+'<div style="display:flex;gap:8px;margin-top:10px"><input class="fld" id="cmName" maxlength="8" placeholder="새 분류 이름" style="margin:0"><button class="btn sm" data-act="catAdd">추가</button></div></div>'}
+  if(canWrite()){
+    h+='<div class="card"><h3>클로드 데이터 가져오기</h3><p class="sub">클로드에서 내려받은 백업 파일(.json)을 선택하면 곡과 악보를 한 번에 불러옵니다.</p><label class="btn ghost full" style="margin:0;cursor:pointer">📂 백업 파일 선택 (.json)<input type="file" id="impJson" accept=".json,application/json" hidden></label></div>'}
   h+='<div class="card"><h3>앱 공유</h3><p class="sub">이 링크를 인도자들에게 보내 주세요.</p><input class="fld" id="shLink" readonly value="'+esc(SHARE)+'"><button class="btn ghost full" data-act="copy">링크 복사</button></div>';
   if(canWrite()&&localSongs().length)h+='<div class="card"><h3>이 기기의 예전 곡</h3><p class="sub">예전 버전에서 이 기기에 저장된 곡 '+localSongs().length+'곡이 있어요.</p><button class="btn ghost full" data-act="imp">공유 목록으로 가져오기</button></div>';
   if(IS_SB)h+='<div class="card"><h3>계정</h3><p class="sub">'+esc(myEmail)+'</p><button class="btn ghost full danger" data-act="logout">로그아웃</button></div>';
@@ -301,6 +303,7 @@ document.addEventListener('click',function(e){var c=e.target.closest('[data-clos
 $('tabs').onclick=function(e){var b=e.target.closest('[data-tab]');if(!b)return;tab=b.getAttribute('data-tab');window.scrollTo(0,0);render()};
 $('fab').onclick=function(){if(tab==='songs')sub==='list'?openSong():openSheet();else if(tab==='conti')openConti()};
 document.addEventListener('input',function(e){if(e.target.id==='q'){q=e.target.value;updSongs()}});
+document.addEventListener('change',function(e){if(e.target&&e.target.id==='impJson'&&e.target.files&&e.target.files[0]){importBackupJson(e.target.files[0]);e.target.value=''}});
 $('main').onclick=function(e){
   var el=e.target.closest('[data-sub],[data-g],[data-s],[data-h],[data-c],[data-act],[data-ok],[data-no],[data-rm],[data-cd]');if(!el)return;
   var d=el.dataset;
@@ -526,7 +529,51 @@ async function keepConti(name,date,topic,items,covers){
     var pages=urls.slice();items.forEach(function(s){(s.imgs||[]).forEach(function(u){pages.push(u)})});
     await db.doc('contis/'+Date.now()).set({name:name,date:date,topic:topic,songs:items.map(function(s){return s.title+' ['+s.key+']'}),pages:pages,at:Date.now()});return true}catch(e){return false}}
 
-/* ---------- 예전 곡 가져오기 ---------- */
+/* ---------- 백업 파일(.json) 및 예전 곡 가져오기 ---------- */
+async function uploadDataUrlIfNeeded(u){
+  if(typeof u==='string'&&/^data:image\//.test(u)&&assets){
+    try{var r=await assets.upload(toBlob(u));if(r&&r.url)return r.url}catch(e){}
+  }
+  return u;
+}
+async function importBackupJson(file){
+  if(!db||!canWrite()){toast('관리자 로그인 후 이용할 수 있어요');return}
+  try{
+    toast('백업 파일을 읽는 중…');
+    var txt=await file.text();
+    var data=JSON.parse(txt);
+    var sList=Array.isArray(data.songs)?data.songs:[];
+    var hList=Array.isArray(data.sheets)?data.sheets:[];
+    var cList=Array.isArray(data.contis)?data.contis:[];
+    var catList=Array.isArray(data.cats)?data.cats:[];
+    var sOk=0,hOk=0,cOk=0;
+
+    if(catList.length){await db.doc('settings/cats').set({list:catList})}
+    for(var i=0;i<sList.length;i++){
+      var s=sList[i],urls=[],rawImgs=Array.isArray(s.imgs)?s.imgs:[];
+      for(var j=0;j<rawImgs.length;j++)urls.push(await uploadDataUrlIfNeeded(rawImgs[j]));
+      var sid=String(s.id||(Date.now()+i));
+      await db.doc('songs/'+sid).set({title:s.title||'',lyric:s.lyric||'',yt:s.yt||'',key:s.key||'C',cats:Array.isArray(s.cats)?s.cats:[],imgs:urls,at:s.at||(Date.now()-i)});
+      sOk++;toast('곡 가져오는 중… ('+sOk+'/'+sList.length+')');
+    }
+    for(var i=0;i<hList.length;i++){
+      var h=hList[i],urls=[],rawImgs=Array.isArray(h.imgs)?h.imgs:[];
+      for(var j=0;j<rawImgs.length;j++)urls.push(await uploadDataUrlIfNeeded(rawImgs[j]));
+      var hid=String(h.id||(Date.now()+10000+i));
+      await db.doc('sheets/'+hid).set({title:h.title||'',key:h.key||'C',imgs:urls,at:h.at||(Date.now()-i)});
+      hOk++;
+    }
+    for(var i=0;i<cList.length;i++){
+      var c=cList[i],pUrls=[],rawPages=Array.isArray(c.pages)?c.pages:[];
+      for(var j=0;j<rawPages.length;j++)pUrls.push(await uploadDataUrlIfNeeded(rawPages[j]));
+      var cid=String(c.id||(Date.now()+20000+i));
+      await db.doc('contis/'+cid).set({name:c.name||'',date:c.date||'',topic:c.topic||'',songs:Array.isArray(c.songs)?c.songs:[],pages:pUrls,at:c.at||(Date.now()-i)});
+      cOk++;
+    }
+    toast('가져오기 완료! (곡 '+sOk+'개, 악보 '+hOk+'개, 콘티 '+cOk+'개)');
+  }catch(err){toast('백업 파일을 불러오지 못했어요. 올바른 JSON 파일인지 확인해 주세요')}
+}
+
 function localSongs(){try{if(localStorage.getItem('worshipSongs.v1.done'))return[];return JSON.parse(localStorage.getItem('worshipSongs.v1')||'[]')}catch(e){return[]}}
 var importing=false;
 async function importLocal(){
